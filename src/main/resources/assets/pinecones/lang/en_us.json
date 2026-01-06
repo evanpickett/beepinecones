@@ -1,0 +1,31 @@
+{
+  "itemGroup.pinecones": "Pinecones",
+
+  "item.pinecones.pinecone": "Pinecone",
+  "item.pinecones.pollen": "Pollen",
+
+  "block.pinecones.colony_expansion": "Colony Expansion",
+
+  "tooltip.pinecones.tree_type": "Tree: %s",
+  "tooltip.pinecones.biome": "Biome: %s",
+  "tooltip.pinecones.unknown_origin": "Unknown Origin",
+  "tooltip.pinecones.flower_type": "Flower: %s",
+  "tooltip.pinecones.unknown_flower": "Unknown Flower",
+
+  "pinecones.configuration.title": "Pinecones Configuration",
+  "pinecones.configuration.section.pinecones.common.toml": "Pinecones Settings",
+  "pinecones.configuration.section.pinecones.common.toml.title": "Pinecones Settings",
+  "pinecones.configuration.replaceSaplingDrops": "Replace Sapling Drops",
+  "pinecones.configuration.pineconeReplantChance": "Pinecone Replant Chance",
+  "pinecones.configuration.pineconeTreeSpacing": "Pinecone Tree Spacing",
+  "pinecones.configuration.plantDelayTicks": "Plant Delay Ticks",
+  "pinecones.configuration.beeNestRadius": "Bee Nest Radius",
+  "pinecones.configuration.beePineconeDropTimeout": "Bee Pinecone Drop Timeout",
+  "pinecones.configuration.beePineconeDropDistance": "Bee Pinecone Drop Distance",
+  "pinecones.configuration.beePineconeSearchRadius": "Bee Pinecone Search Radius",
+  "pinecones.configuration.beePollenSearchRadius": "Bee Pollen Search Radius",
+
+  "jei.pinecones.pinecone.info": "Bees carry pinecones from trees and drop them in new locations, where they may replant as saplings.",
+  "jei.pinecones.pollen.info": "Bees spread pollen from flowers, allowing new flowers to grow in different locations.",
+  "jei.pinecones.colony_expansion.info": "Forms below bee nests with lots of nearby flowers and spawns defender bees to protect the hive."
+}

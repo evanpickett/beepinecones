@@ -1,0 +1,8 @@
+{
+  "variants": {
+    "facing=north": { "model": "pinecones:block/colony_expansion" },
+    "facing=south": { "model": "pinecones:block/colony_expansion", "y": 180 },
+    "facing=east": { "model": "pinecones:block/colony_expansion", "y": 90 },
+    "facing=west": { "model": "pinecones:block/colony_expansion", "y": 270 }
+  }
+}

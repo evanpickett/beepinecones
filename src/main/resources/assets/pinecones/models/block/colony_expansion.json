@@ -1,0 +1,23 @@
+{
+  "parent": "minecraft:block/block",
+  "textures": {
+    "side": "minecraft:block/bee_nest_side",
+    "bottom": "minecraft:block/bee_nest_bottom",
+    "front": "minecraft:block/bee_nest_front",
+    "particle": "minecraft:block/bee_nest_side"
+  },
+  "elements": [
+    {
+      "from": [0, 10.67, 0],
+      "to": [16, 16, 16],
+      "faces": {
+        "up": { "texture": "#bottom", "cullface": "up" },
+        "down": { "texture": "#bottom" },
+        "north": { "texture": "#front", "uv": [0, 10.67, 16, 16] },
+        "south": { "texture": "#side", "uv": [0, 10.67, 16, 16] },
+        "east": { "texture": "#side", "uv": [0, 10.67, 16, 16] },
+        "west": { "texture": "#side", "uv": [0, 10.67, 16, 16] }
+      }
+    }
+  ]
+}

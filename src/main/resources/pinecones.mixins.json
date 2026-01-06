@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "package": "com.mstn.pinecones.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "minVersion": "0.8",
+  "mixins": [
+    "BeehiveBlockEntityMixin",
+    "BeeMixin"
+  ],
+  "client": [
+    "BeeRenderStateMixin",
+    "BeeRendererMixin",
+    "MobRendererMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
