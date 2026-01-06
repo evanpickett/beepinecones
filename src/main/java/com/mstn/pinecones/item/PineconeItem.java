@@ -1,12 +1,9 @@
 package com.mstn.pinecones.item;
 
 import com.mstn.pinecones.component.TreeOriginData;
-import com.mstn.pinecones.init.ModDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
@@ -56,8 +53,8 @@ public class PineconeItem extends Item {
             Map.entry("minecraft:flowering_azalea_leaves", Blocks.FLOWERING_AZALEA)
     );
 
-    public PineconeItem(Identifier id) {
-        super(new Properties().setId(ResourceKey.create(Registries.ITEM, id)));
+    public PineconeItem(Properties properties) {
+        super(properties);
     }
 
     @Override
@@ -97,7 +94,7 @@ public class PineconeItem extends Item {
             }
         }
 
-        return InteractionResult.SUCCESS;
+        return InteractionResult.sidedSuccess(level.isClientSide());
     }
 
     private boolean canPlaceOn(BlockState state) {
@@ -105,7 +102,7 @@ public class PineconeItem extends Item {
     }
 
     private Block getSaplingFromItem(ItemStack stack) {
-        TreeOriginData data = stack.get(ModDataComponents.TREE_ORIGIN.get());
+        TreeOriginData data = TreeOriginData.loadFromStack(stack);
         if (data != null) {
             Block sapling = LOG_TO_SAPLING.get(data.woodType().toString());
             if (sapling != null) {
@@ -120,7 +117,7 @@ public class PineconeItem extends Item {
                     .replace("_leaves", "_sapling")
                     .replace("stripped_", "");
 
-            Block dynamicSapling = BuiltInRegistries.BLOCK.getValue(Identifier.parse(saplingId));
+            Block dynamicSapling = BuiltInRegistries.BLOCK.get(new ResourceLocation(saplingId));
             if (dynamicSapling != Blocks.AIR) {
                 return dynamicSapling;
             }

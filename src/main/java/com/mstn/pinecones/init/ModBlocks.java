@@ -2,32 +2,36 @@ package com.mstn.pinecones.init;
 
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.block.ColonyExpansionBlock;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTabs;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
 import net.minecraft.world.level.material.PushReaction;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-import net.neoforged.neoforge.registries.DeferredBlock;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public class ModBlocks {
-    public static final DeferredRegister.Blocks BLOCKS = DeferredRegister.createBlocks(pinecones.MODID);
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(pinecones.MODID);
+    public static final DeferredRegister<Block> BLOCKS = DeferredRegister.create(ForgeRegistries.BLOCKS, pinecones.MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, pinecones.MODID);
 
-    public static final DeferredBlock<ColonyExpansionBlock> COLONY_EXPANSION = BLOCKS.registerBlock(
+    public static final RegistryObject<ColonyExpansionBlock> COLONY_EXPANSION = BLOCKS.register(
             "colony_expansion",
-            ColonyExpansionBlock::new,
-            BlockBehaviour.Properties.of()
+            () -> new ColonyExpansionBlock(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_YELLOW)
                     .strength(0.6F)
                     .sound(SoundType.WOOD)
                     .pushReaction(PushReaction.DESTROY)
-                    .noOcclusion());
+                    .noOcclusion()));
 
-    public static final DeferredItem<?> COLONY_EXPANSION_ITEM = ITEMS.registerSimpleBlockItem(COLONY_EXPANSION);
+    public static final RegistryObject<BlockItem> COLONY_EXPANSION_ITEM = ITEMS.register(
+            "colony_expansion",
+            () -> new BlockItem(COLONY_EXPANSION.get(), new Item.Properties()));
 
     public static void register(IEventBus modEventBus) {
         BLOCKS.register(modEventBus);

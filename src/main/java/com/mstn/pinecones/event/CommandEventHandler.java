@@ -2,11 +2,11 @@ package com.mstn.pinecones.event;
 
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.command.PineconesCommand;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
-@EventBusSubscriber(modid = pinecones.MODID)
+@Mod.EventBusSubscriber(modid = pinecones.MODID)
 public class CommandEventHandler {
 
     @SubscribeEvent

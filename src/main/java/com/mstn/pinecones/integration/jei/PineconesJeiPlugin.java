@@ -8,7 +8,7 @@ import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.registration.IRecipeRegistration;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -18,10 +18,10 @@ import net.minecraft.world.item.ItemStack;
 @JeiPlugin
 public class PineconesJeiPlugin implements IModPlugin {
 
-    private static final Identifier PLUGIN_UID = Identifier.parse(pinecones.MODID + ":jei_plugin");
+    private static final ResourceLocation PLUGIN_UID = new ResourceLocation(pinecones.MODID, "jei_plugin");
 
     @Override
-    public Identifier getPluginUid() {
+    public ResourceLocation getPluginUid() {
         return PLUGIN_UID;
     }
 

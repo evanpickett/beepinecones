@@ -5,11 +5,11 @@ import com.mstn.pinecones.entity.PineconeEntity;
 import com.mstn.pinecones.init.ModItems;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.event.entity.EntityJoinLevelEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
-@EventBusSubscriber(modid = pinecones.MODID)
+@Mod.EventBusSubscriber(modid = pinecones.MODID)
 public class EntityEventHandler {
 
     @SubscribeEvent

@@ -3,12 +3,10 @@ package com.mstn.pinecones.entity;
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.command.PineconesCommand;
 import com.mstn.pinecones.component.FlowerData;
-import com.mstn.pinecones.init.ModDataComponents;
 import com.mstn.pinecones.init.ModEntityTypes;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
@@ -74,14 +72,14 @@ public class PollenEntity extends ItemEntity {
         BlockPos pos = blockPosition();
         ItemStack stack = getItem();
 
-        // Get flower data
-        FlowerData flowerData = stack.get(ModDataComponents.FLOWER_DATA.get());
+        // Get flower data from NBT
+        FlowerData flowerData = FlowerData.loadFromStack(stack);
         if (flowerData == null) {
             return false;
         }
 
         // Get flower block
-        Block flowerBlock = BuiltInRegistries.BLOCK.getValue(flowerData.flowerType());
+        Block flowerBlock = BuiltInRegistries.BLOCK.get(flowerData.flowerType());
         if (flowerBlock == Blocks.AIR) {
             return false;
         }

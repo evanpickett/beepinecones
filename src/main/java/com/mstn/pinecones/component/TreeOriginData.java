@@ -1,29 +1,40 @@
 package com.mstn.pinecones.component;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Stores the origin data for a pinecone: the type of tree it came from and the biome.
+ * In 1.20.1, this is stored in NBT on the ItemStack.
  */
-public record TreeOriginData(Identifier woodType, Identifier biome) {
+public record TreeOriginData(ResourceLocation woodType, ResourceLocation biome) {
 
-    public static final Codec<TreeOriginData> CODEC = RecordCodecBuilder.create(instance ->
-            instance.group(
-                    Identifier.CODEC.fieldOf("wood_type").forGetter(TreeOriginData::woodType),
-                    Identifier.CODEC.fieldOf("biome").forGetter(TreeOriginData::biome)
-            ).apply(instance, TreeOriginData::new)
-    );
+    private static final String TAG_WOOD_TYPE = "WoodType";
+    private static final String TAG_BIOME = "Biome";
+    private static final String TAG_KEY = "TreeOrigin";
 
-    public static final MapCodec<TreeOriginData> MAP_CODEC = CODEC.fieldOf("tree_origin");
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString(TAG_WOOD_TYPE, woodType.toString());
+        tag.putString(TAG_BIOME, biome.toString());
+        return tag;
+    }
 
-    public static final StreamCodec<ByteBuf, TreeOriginData> STREAM_CODEC = StreamCodec.composite(
-            Identifier.STREAM_CODEC, TreeOriginData::woodType,
-            Identifier.STREAM_CODEC, TreeOriginData::biome,
-            TreeOriginData::new
-    );
+    public static TreeOriginData fromNbt(CompoundTag tag) {
+        ResourceLocation wood = new ResourceLocation(tag.getString(TAG_WOOD_TYPE));
+        ResourceLocation biome = new ResourceLocation(tag.getString(TAG_BIOME));
+        return new TreeOriginData(wood, biome);
+    }
+
+    public static void saveToStack(ItemStack stack, TreeOriginData data) {
+        stack.getOrCreateTag().put(TAG_KEY, data.toNbt());
+    }
+
+    public static TreeOriginData loadFromStack(ItemStack stack) {
+        if (stack.hasTag() && stack.getTag().contains(TAG_KEY)) {
+            return fromNbt(stack.getTag().getCompound(TAG_KEY));
+        }
+        return null;
+    }
 }

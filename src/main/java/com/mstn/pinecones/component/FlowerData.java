@@ -1,27 +1,37 @@
 package com.mstn.pinecones.component;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.Identifier;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * Stores the flower type that pollen came from.
+ * In 1.20.1, this is stored in NBT on the ItemStack.
  */
-public record FlowerData(Identifier flowerType) {
+public record FlowerData(ResourceLocation flowerType) {
 
-    public static final Codec<FlowerData> CODEC = RecordCodecBuilder.create(instance ->
-            instance.group(
-                    Identifier.CODEC.fieldOf("flower_type").forGetter(FlowerData::flowerType)
-            ).apply(instance, FlowerData::new)
-    );
+    private static final String TAG_FLOWER_TYPE = "FlowerType";
+    private static final String TAG_KEY = "FlowerData";
 
-    public static final MapCodec<FlowerData> MAP_CODEC = CODEC.fieldOf("flower_data");
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.putString(TAG_FLOWER_TYPE, flowerType.toString());
+        return tag;
+    }
 
-    public static final StreamCodec<ByteBuf, FlowerData> STREAM_CODEC = StreamCodec.composite(
-            Identifier.STREAM_CODEC, FlowerData::flowerType,
-            FlowerData::new
-    );
+    public static FlowerData fromNbt(CompoundTag tag) {
+        ResourceLocation flower = new ResourceLocation(tag.getString(TAG_FLOWER_TYPE));
+        return new FlowerData(flower);
+    }
+
+    public static void saveToStack(ItemStack stack, FlowerData data) {
+        stack.getOrCreateTag().put(TAG_KEY, data.toNbt());
+    }
+
+    public static FlowerData loadFromStack(ItemStack stack) {
+        if (stack.hasTag() && stack.getTag().contains(TAG_KEY)) {
+            return fromNbt(stack.getTag().getCompound(TAG_KEY));
+        }
+        return null;
+    }
 }

@@ -1,48 +1,61 @@
 package com.mstn.pinecones.mixin;
 
 import com.mstn.pinecones.Config;
+import com.mstn.pinecones.component.FlowerData;
 import com.mstn.pinecones.data.DefenderBeeData;
 import com.mstn.pinecones.data.NestData;
-import com.mstn.pinecones.init.ModAttachments;
+import com.mstn.pinecones.entity.PollenEntity;
+import com.mstn.pinecones.init.ModItems;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BeehiveBlock;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import javax.annotation.Nullable;
 import java.util.List;
 
 /**
  * Mixin for bee behavior modifications:
  * - Enable love mode after pollinating when population is low
- * Note: Defender bee aggro prevention is handled via NeoForge events
+ * - Drop pollen when bee finishes pollinating
  */
 @Mixin(Bee.class)
 public abstract class BeeMixin {
+
+    @Shadow @Nullable public abstract BlockPos getSavedFlowerPos();
 
     private static final int LOVE_MODE_CHECK_RADIUS = 32;
 
     /**
      * When a bee finishes pollinating (setHasNectar called with true),
-     * check if it should enter love mode based on population.
+     * drop pollen and check if it should enter love mode based on population.
      */
     @Inject(method = "setHasNectar", at = @At("TAIL"))
-    private void pinecones$checkLoveModeAfterPollinating(boolean hasNectar, CallbackInfo ci) {
+    private void pinecones$onPollinationComplete(boolean hasNectar, CallbackInfo ci) {
         if (!hasNectar) return;
 
         Bee self = (Bee)(Object)this;
         if (!(self.level() instanceof ServerLevel level)) return;
 
+        // Drop pollen near the flower that was just pollinated
+        dropPollenNearFlower(self, level);
+
         if (self.isBaby()) return;
 
-        DefenderBeeData defenderData = self.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        // Check defender status from persistent data
+        DefenderBeeData defenderData = DefenderBeeData.loadFromEntity(self);
         if (defenderData.isDefender()) return;
 
         BlockPos beePos = self.blockPosition();
@@ -62,6 +75,39 @@ public abstract class BeeMixin {
         if (totalBeeCount < maxBees) {
             self.setInLove(null);
         }
+    }
+
+    /**
+     * Drops pollen near the flower that was just pollinated.
+     */
+    private void dropPollenNearFlower(Bee bee, ServerLevel level) {
+        BlockPos flowerPos = getSavedFlowerPos();
+        if (flowerPos == null) return;
+
+        BlockState flowerState = level.getBlockState(flowerPos);
+        if (flowerState.isAir()) return;
+
+        // Create pollen with flower data
+        ResourceLocation flowerId = BuiltInRegistries.BLOCK.getKey(flowerState.getBlock());
+        ItemStack pollen = new ItemStack(ModItems.POLLEN.get());
+        FlowerData.saveToStack(pollen, new FlowerData(flowerId));
+
+        // Calculate random position further from the flower to prevent item merging
+        double angle = level.random.nextDouble() * Math.PI * 2;
+        double distance = 4.0 + level.random.nextDouble() * 4.0; // 4-8 blocks away
+        double dropX = flowerPos.getX() + 0.5 + Math.cos(angle) * distance;
+        double dropZ = flowerPos.getZ() + 0.5 + Math.sin(angle) * distance;
+        double dropY = flowerPos.getY() + 0.5;
+
+        // Create and spawn pollen entity
+        PollenEntity pollenEntity = new PollenEntity(level, dropX, dropY, dropZ, pollen);
+        pollenEntity.setDeltaMovement(
+                Math.cos(angle) * 0.3,
+                0.15,
+                Math.sin(angle) * 0.3
+        );
+
+        level.addFreshEntity(pollenEntity);
     }
 
     /**
@@ -98,7 +144,7 @@ public abstract class BeeMixin {
         AABB searchBox = new AABB(center).inflate(LOVE_MODE_CHECK_RADIUS);
         List<Bee> bees = level.getEntitiesOfClass(Bee.class, searchBox, bee -> {
             if (bee == excludeBee) return false;
-            DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+            DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
             return !data.isDefender();
         });
         return bees.size();

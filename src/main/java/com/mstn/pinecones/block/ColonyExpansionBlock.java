@@ -1,30 +1,24 @@
 package com.mstn.pinecones.block;
 
-import com.mojang.serialization.MapCodec;
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.data.DefenderBeeData;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.ScheduledTickAccess;
 import net.minecraft.world.level.block.BaseEntityBlock;
 import net.minecraft.world.level.block.BeehiveBlock;
 import net.minecraft.world.level.block.Block;
@@ -36,7 +30,7 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
@@ -47,25 +41,16 @@ import javax.annotation.Nullable;
  * Provides defensive bee spawning when hostile mobs are detected.
  */
 public class ColonyExpansionBlock extends BaseEntityBlock {
-    public static final MapCodec<ColonyExpansionBlock> CODEC =
-            simpleCodec(ColonyExpansionBlock::new);
 
-    public static final EnumProperty<Direction> FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
 
     private static final VoxelShape SHAPE = Block.box(0, 10.67, 0, 16, 16, 16);
 
     private static final int DESTRUCTION_DEFENDER_COUNT = 6;
-    private static final float DEFENDER_BEE_SCALE = 0.5f;
-    private static final Identifier DEFENDER_SCALE_ID = Identifier.parse("pinecones:defender_bee_scale");
 
     public ColonyExpansionBlock(Properties properties) {
         super(properties);
         this.registerDefaultState(this.stateDefinition.any().setValue(FACING, Direction.NORTH));
-    }
-
-    @Override
-    protected MapCodec<? extends BaseEntityBlock> codec() {
-        return CODEC;
     }
 
     @Override
@@ -84,24 +69,23 @@ public class ColonyExpansionBlock extends BaseEntityBlock {
     }
 
     @Override
-    protected boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
+    public boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
         BlockPos abovePos = pos.above();
         BlockState aboveState = level.getBlockState(abovePos);
         return aboveState.getBlock() instanceof BeehiveBlock;
     }
 
     @Override
-    protected BlockState updateShape(BlockState state, LevelReader level, ScheduledTickAccess tickAccess,
-                                      BlockPos pos, Direction direction, BlockPos neighborPos,
-                                      BlockState neighborState, RandomSource random) {
+    public BlockState updateShape(BlockState state, Direction direction, BlockState neighborState,
+                                   LevelAccessor level, BlockPos pos, BlockPos neighborPos) {
         if (direction == Direction.UP && !canSurvive(state, level, pos)) {
             return Blocks.AIR.defaultBlockState();
         }
-        return super.updateShape(state, level, tickAccess, pos, direction, neighborPos, neighborState, random);
+        return super.updateShape(state, direction, neighborState, level, pos, neighborPos);
     }
 
     @Override
-    protected void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
+    public void onPlace(BlockState state, Level level, BlockPos pos, BlockState oldState, boolean movedByPiston) {
         super.onPlace(state, level, pos, oldState, movedByPiston);
         BlockPos abovePos = pos.above();
         BlockState aboveState = level.getBlockState(abovePos);
@@ -112,7 +96,7 @@ public class ColonyExpansionBlock extends BaseEntityBlock {
     }
 
     @Override
-    public BlockState playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
+    public void playerWillDestroy(Level level, BlockPos pos, BlockState state, Player player) {
         if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
             if (Config.COLONY_EXPANSION_ENABLED.get()) {
                 spawnDefendersOnDestruction(serverLevel, pos, player);
@@ -123,11 +107,11 @@ public class ColonyExpansionBlock extends BaseEntityBlock {
                     pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5, honeycomb);
             level.addFreshEntity(itemEntity);
         }
-        return super.playerWillDestroy(level, pos, state, player);
+        super.playerWillDestroy(level, pos, state, player);
     }
 
     @Override
-    protected void attack(BlockState state, Level level, BlockPos pos, Player player) {
+    public void attack(BlockState state, Level level, BlockPos pos, Player player) {
         super.attack(state, level, pos, player);
         if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
             if (Config.COLONY_EXPANSION_ENABLED.get()) {
@@ -157,18 +141,11 @@ public class ColonyExpansionBlock extends BaseEntityBlock {
             bee.setPos(x, y, z);
 
             bee.setTarget(player);
-            bee.startPersistentAngerTimer();
+            bee.setRemainingPersistentAngerTime(Integer.MAX_VALUE);
+            bee.setPersistentAngerTarget(player.getUUID());
 
-            bee.setData(ModAttachments.DEFENDER_BEE_DATA.get(), DefenderBeeData.createHomeless());
-
-            AttributeInstance scaleAttr = bee.getAttribute(Attributes.SCALE);
-            if (scaleAttr != null) {
-                scaleAttr.addPermanentModifier(new AttributeModifier(
-                        DEFENDER_SCALE_ID,
-                        DEFENDER_BEE_SCALE - 1.0,
-                        AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
-                ));
-            }
+            // Store defender data in persistent NBT
+            DefenderBeeData.saveToEntity(bee, DefenderBeeData.createHomeless());
 
             level.addFreshEntity(bee);
 

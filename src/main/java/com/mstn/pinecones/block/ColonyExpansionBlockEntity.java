@@ -2,7 +2,6 @@ package com.mstn.pinecones.block;
 
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.data.DefenderBeeData;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModBlockEntities;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
@@ -13,16 +12,12 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
-import net.minecraft.world.entity.ai.attributes.AttributeModifier;
-import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.monster.Creeper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.resources.Identifier;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -36,8 +31,6 @@ import java.util.UUID;
  */
 public class ColonyExpansionBlockEntity extends BlockEntity {
     private static final int SPAWN_COOLDOWN_TICKS = 60;
-    private static final float DEFENDER_BEE_SCALE = 0.5f;
-    private static final Identifier DEFENDER_SCALE_ID = Identifier.parse("pinecones:defender_bee_scale");
 
     private final Set<UUID> spawnedBeeIds = new HashSet<>();
     private int tickCounter = 0;
@@ -157,19 +150,17 @@ public class ColonyExpansionBlockEntity extends BlockEntity {
             double z = pos.getZ() + 0.5 + (level.random.nextDouble() - 0.5);
             bee.setPos(x, y, z);
 
+            // Make defender bees smaller (baby size)
+            bee.setBaby(true);
+
             bee.setTarget(target);
-            bee.startPersistentAngerTimer();
-
-            bee.setData(ModAttachments.DEFENDER_BEE_DATA.get(), DefenderBeeData.create(pos));
-
-            AttributeInstance scaleAttr = bee.getAttribute(Attributes.SCALE);
-            if (scaleAttr != null) {
-                scaleAttr.addPermanentModifier(new AttributeModifier(
-                        DEFENDER_SCALE_ID,
-                        DEFENDER_BEE_SCALE - 1.0,
-                        AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL
-                ));
+            bee.setRemainingPersistentAngerTime(Integer.MAX_VALUE);
+            if (target != null) {
+                bee.setPersistentAngerTarget(target.getUUID());
             }
+
+            // Store defender data in persistent NBT
+            DefenderBeeData.saveToEntity(bee, DefenderBeeData.create(pos));
 
             level.addFreshEntity(bee);
             spawnedBeeIds.add(bee.getUUID());

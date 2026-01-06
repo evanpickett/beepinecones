@@ -1,12 +1,12 @@
 package com.mstn.pinecones.ai;
 
 import com.mstn.pinecones.data.DefenderBeeData;
-import com.mstn.pinecones.init.ModAttachments;
+import net.minecraft.core.BlockPos;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 
 import java.util.EnumSet;
 
@@ -28,12 +28,14 @@ public class DefenderBeeGoal extends Goal {
 
     public DefenderBeeGoal(Bee bee) {
         this.bee = bee;
-        this.setFlags(EnumSet.noneOf(Flag.class));
+        // Use MOVE flag to prevent vanilla BeePollinateGoal from running concurrently
+        // (we set savedFlowerPos to null which would crash the pollinate goal)
+        this.setFlags(EnumSet.of(Flag.MOVE));
     }
 
     @Override
     public boolean canUse() {
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         return data.isDefender();
     }
 
@@ -44,7 +46,7 @@ public class DefenderBeeGoal extends Goal {
 
     @Override
     public void tick() {
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         if (!data.isDefender()) return;
 
         if (bee.hasStung()) {
@@ -56,7 +58,7 @@ public class DefenderBeeGoal extends Goal {
 
             if (ticksSinceStung % BLEED_DAMAGE_INTERVAL == 0) {
                 DamageSource bleedDamage = bee.damageSources().genericKill();
-                bee.hurtServer(bee.level().getServer().overworld(), bleedDamage, BLEED_DAMAGE_AMOUNT);
+                bee.hurt(bleedDamage, BLEED_DAMAGE_AMOUNT);
             }
             return;
         }
@@ -71,7 +73,10 @@ public class DefenderBeeGoal extends Goal {
             ticksWithoutTarget++;
 
             data.homeExpansion().ifPresent(homePos -> {
-                double distSq = bee.blockPosition().distSqr(homePos);
+                if (homePos == null) return;
+                BlockPos beePos = bee.blockPosition();
+                if (beePos == null) return;
+                double distSq = beePos.distSqr(homePos);
 
                 if (distSq < 4) {
                     bee.level().playSound(null, bee.getX(), bee.getY(), bee.getZ(),

@@ -7,21 +7,18 @@ import com.mstn.pinecones.component.FlowerData;
 import com.mstn.pinecones.component.TreeOriginData;
 import com.mstn.pinecones.data.BeeCarryData;
 import com.mstn.pinecones.entity.PineconeEntity;
-import com.mstn.pinecones.init.ModAttachments;
-import com.mstn.pinecones.init.ModDataComponents;
 import com.mstn.pinecones.init.ModItems;
 import com.mstn.pinecones.init.ModTags;
 import com.mstn.pinecones.util.BiomeUtils;
 import com.mstn.pinecones.util.TreeUtils;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
-import net.minecraft.server.permissions.Permissions;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.state.BlockState;
@@ -39,7 +36,7 @@ public class PineconesCommand {
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
         dispatcher.register(Commands.literal("pinecones")
-                .requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_GAMEMASTER))
+                .requires(source -> source.hasPermission(2))
 
                 // Give pinecone with tree data
                 .then(Commands.literal("give")
@@ -100,11 +97,11 @@ public class PineconesCommand {
             return 0;
         }
 
-        Identifier biome = BiomeUtils.getBiomeAt(player.level(), player.blockPosition());
-        Identifier wood = Identifier.parse(woodType.contains(":") ? woodType : "minecraft:" + woodType);
+        ResourceLocation biome = BiomeUtils.getBiomeAt(player.level(), player.blockPosition());
+        ResourceLocation wood = new ResourceLocation(woodType.contains(":") ? woodType : "minecraft:" + woodType);
 
         ItemStack pinecone = new ItemStack(ModItems.PINECONE.get());
-        pinecone.set(ModDataComponents.TREE_ORIGIN.get(), new TreeOriginData(wood, biome));
+        TreeOriginData.saveToStack(pinecone, new TreeOriginData(wood, biome));
 
         player.getInventory().add(pinecone);
         source.sendSuccess(() -> Component.literal("Gave pinecone (wood: " + wood + ", biome: " + biome + ")"), true);
@@ -121,10 +118,10 @@ public class PineconesCommand {
             return 0;
         }
 
-        Identifier flower = Identifier.parse(flowerType.contains(":") ? flowerType : "minecraft:" + flowerType);
+        ResourceLocation flower = new ResourceLocation(flowerType.contains(":") ? flowerType : "minecraft:" + flowerType);
 
         ItemStack pollen = new ItemStack(ModItems.POLLEN.get());
-        pollen.set(ModDataComponents.FLOWER_DATA.get(), new FlowerData(flower));
+        FlowerData.saveToStack(pollen, new FlowerData(flower));
 
         player.getInventory().add(pollen);
         source.sendSuccess(() -> Component.literal("Gave pollen (flower: " + flower + ")"), true);
@@ -140,10 +137,10 @@ public class PineconesCommand {
         ServerLevel level = (ServerLevel) player.level();
         Vec3 pos = player.position().add(0, 1, 0);
 
-        Identifier biome = BiomeUtils.getBiomeAt(level, player.blockPosition());
+        ResourceLocation biome = BiomeUtils.getBiomeAt(level, player.blockPosition());
         ItemStack pineconeItem = new ItemStack(ModItems.PINECONE.get());
-        pineconeItem.set(ModDataComponents.TREE_ORIGIN.get(),
-                new TreeOriginData(Identifier.parse("minecraft:oak_log"), biome));
+        TreeOriginData.saveToStack(pineconeItem,
+                new TreeOriginData(new ResourceLocation("minecraft:oak_log"), biome));
 
         PineconeEntity pinecone = new PineconeEntity(level, pos.x, pos.y, pos.z, pineconeItem);
         level.addFreshEntity(pinecone);
@@ -254,13 +251,13 @@ public class PineconesCommand {
             return 0;
         }
 
-        Identifier biome = BiomeUtils.getBiomeAt(player.level(), player.blockPosition());
+        ResourceLocation biome = BiomeUtils.getBiomeAt(player.level(), player.blockPosition());
         ItemStack pinecone = new ItemStack(ModItems.PINECONE.get());
-        pinecone.set(ModDataComponents.TREE_ORIGIN.get(),
-                new TreeOriginData(Identifier.parse("minecraft:oak_log"), biome));
+        TreeOriginData.saveToStack(pinecone,
+                new TreeOriginData(new ResourceLocation("minecraft:oak_log"), biome));
 
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.withCarriedItem(pinecone, bee.blockPosition()));
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
+        BeeCarryData.saveToEntity(bee, data.withCarriedItem(pinecone, bee.blockPosition()));
 
         source.sendSuccess(() -> Component.literal("Made nearest bee carry a pinecone"), true);
         return 1;
@@ -279,10 +276,10 @@ public class PineconesCommand {
         }
 
         ItemStack pollen = new ItemStack(ModItems.POLLEN.get());
-        pollen.set(ModDataComponents.FLOWER_DATA.get(), new FlowerData(Identifier.parse("minecraft:poppy")));
+        FlowerData.saveToStack(pollen, new FlowerData(new ResourceLocation("minecraft:poppy")));
 
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.withCarriedItem(pollen, bee.blockPosition()));
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
+        BeeCarryData.saveToEntity(bee, data.withCarriedItem(pollen, bee.blockPosition()));
 
         source.sendSuccess(() -> Component.literal("Made nearest bee carry pollen"), true);
         return 1;
@@ -300,8 +297,8 @@ public class PineconesCommand {
             return 0;
         }
 
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.clearCarriedItem());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
+        BeeCarryData.saveToEntity(bee, data.clearCarriedItem());
 
         source.sendSuccess(() -> Component.literal("Cleared bee's carried item"), true);
         return 1;
@@ -315,7 +312,7 @@ public class PineconesCommand {
         if (source.getEntity() instanceof ServerPlayer player) {
             Bee bee = findNearestBee(player);
             if (bee != null) {
-                BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+                BeeCarryData data = BeeCarryData.loadFromEntity(bee);
                 source.sendSuccess(() -> Component.literal("Nearest bee carrying: " +
                         (data.isCarryingItem() ? data.carriedItem().getHoverName().getString() : "nothing")), false);
                 source.sendSuccess(() -> Component.literal("Bee just left nest: " + data.justLeftNest()), false);

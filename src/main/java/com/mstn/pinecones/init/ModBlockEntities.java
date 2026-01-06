@@ -2,23 +2,23 @@ package com.mstn.pinecones.init;
 
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.block.ColonyExpansionBlockEntity;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredRegister;
-
-import java.util.function.Supplier;
+import net.minecraftforge.eventbus.api.IEventBus;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public class ModBlockEntities {
     public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES =
-            DeferredRegister.create(Registries.BLOCK_ENTITY_TYPE, pinecones.MODID);
+            DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, pinecones.MODID);
 
-    public static final Supplier<BlockEntityType<ColonyExpansionBlockEntity>> COLONY_EXPANSION =
+    @SuppressWarnings("DataFlowIssue")
+    public static final RegistryObject<BlockEntityType<ColonyExpansionBlockEntity>> COLONY_EXPANSION =
             BLOCK_ENTITIES.register("colony_expansion",
-                    () -> new BlockEntityType<>(
+                    () -> BlockEntityType.Builder.of(
                             ColonyExpansionBlockEntity::new,
                             ModBlocks.COLONY_EXPANSION.get()
-                    ));
+                    ).build(null));
 
     public static void register(IEventBus modEventBus) {
         BLOCK_ENTITIES.register(modEventBus);

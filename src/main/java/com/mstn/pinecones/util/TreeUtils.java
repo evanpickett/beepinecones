@@ -4,7 +4,7 @@ import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LeavesBlock;
@@ -208,7 +208,7 @@ public class TreeUtils {
     /**
      * Gets the wood type from a log or leaf block state.
      */
-    public static Identifier getWoodType(BlockState state) {
+    public static ResourceLocation getWoodType(BlockState state) {
         return BuiltInRegistries.BLOCK.getKey(state.getBlock());
     }
 

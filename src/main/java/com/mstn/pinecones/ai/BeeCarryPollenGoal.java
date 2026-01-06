@@ -2,12 +2,11 @@ package com.mstn.pinecones.ai;
 
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.data.BeeCarryData;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModItems;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -33,7 +32,7 @@ public class BeeCarryPollenGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem()) {
             return false;
@@ -57,7 +56,7 @@ public class BeeCarryPollenGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem()) {
             return false;
@@ -101,14 +100,28 @@ public class BeeCarryPollenGoal extends Goal {
     private void pickUpPollen() {
         if (targetPollen == null || !targetPollen.isAlive()) return;
 
-        ItemStack stack = targetPollen.getItem().copy();
+        // Get the item before we remove it
+        ItemStack stack = targetPollen.getItem();
+        if (stack.isEmpty()) {
+            targetPollen = null;
+            return;
+        }
+
+        // Copy the item for the bee to carry
+        ItemStack carriedStack = stack.copy();
         BlockPos pickupPos = targetPollen.blockPosition();
 
-        BeeCarryData newData = bee.getData(ModAttachments.BEE_CARRY_DATA.get())
-                .withCarriedItem(stack, pickupPos);
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), newData);
+        // Clear the item entity's stack to prevent duplication
+        targetPollen.getItem().setCount(0);
 
-        targetPollen.discard();
+        // Remove the entity
+        targetPollen.kill();
+
+        // Save to bee data
+        BeeCarryData newData = BeeCarryData.loadFromEntity(bee)
+                .withCarriedItem(carriedStack, pickupPos);
+        BeeCarryData.saveToEntity(bee, newData);
+
         targetPollen = null;
     }
 
@@ -143,6 +156,7 @@ public class BeeCarryPollenGoal extends Goal {
      * Checks if a position is already a valid spot for planting a flower (no need to move it).
      */
     private boolean isValidPlantingSpot(BlockPos pos) {
+        if (pos == null) return false;
         Level level = bee.level();
         BlockState below = level.getBlockState(pos.below());
         BlockState at = level.getBlockState(pos);
@@ -165,6 +179,7 @@ public class BeeCarryPollenGoal extends Goal {
      * Checks if there is a flower within the specified distance.
      */
     private boolean hasNearbyFlower(BlockPos pos, int distance) {
+        if (pos == null) return false;
         Level level = bee.level();
         for (int dx = -distance; dx <= distance; dx++) {
             for (int dy = -distance; dy <= distance; dy++) {
@@ -183,6 +198,7 @@ public class BeeCarryPollenGoal extends Goal {
      * Checks if there is other pollen on the ground within the specified distance.
      */
     private boolean hasNearbyPollen(BlockPos pos, int distance) {
+        if (pos == null) return false;
         AABB searchBox = new AABB(pos).inflate(distance);
         List<ItemEntity> nearbyPollen = bee.level().getEntitiesOfClass(ItemEntity.class, searchBox,
                 item -> item.getItem().is(ModItems.POLLEN.get()) && item.isAlive() && item.onGround());
@@ -201,7 +217,9 @@ public class BeeCarryPollenGoal extends Goal {
         BlockPos hivePos = bee.getHivePos();
         if (hivePos == null) return true;
 
-        double dist = bee.blockPosition().distSqr(hivePos);
+        BlockPos beePos = bee.blockPosition();
+        if (beePos == null) return true;
+        double dist = beePos.distSqr(hivePos);
         int radius = Config.BEE_NEST_RADIUS.get();
         return dist <= radius * radius;
     }

@@ -4,7 +4,6 @@ import com.mstn.pinecones.Config;
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.block.ColonyExpansionBlockEntity;
 import com.mstn.pinecones.data.DefenderBeeData;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModBlocks;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
@@ -12,7 +11,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -21,12 +20,12 @@ import net.minecraft.world.level.block.BeehiveBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
-import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
-import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
-import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.event.entity.living.LivingChangeTargetEvent;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
+import net.minecraftforge.event.entity.living.LivingExperienceDropEvent;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 import java.util.Map;
 import java.util.UUID;
@@ -35,7 +34,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Handles events related to colony expansion blocks.
  */
-@EventBusSubscriber(modid = pinecones.MODID)
+@Mod.EventBusSubscriber(modid = pinecones.MODID)
 public class ColonyExpansionHandler {
 
     private static final Map<UUID, Long> recentlyHurtDefenders = new ConcurrentHashMap<>();
@@ -46,14 +45,14 @@ public class ColonyExpansionHandler {
      * When a bee is hurt, check if there's a colony expansion nearby and spawn defender bees.
      */
     @SubscribeEvent
-    public static void onBeeHurt(LivingDamageEvent.Post event) {
+    public static void onBeeHurt(LivingDamageEvent event) {
         if (!Config.COLONY_EXPANSION_ENABLED.get()) return;
 
         LivingEntity entity = event.getEntity();
         if (!(entity instanceof Bee bee)) return;
         if (!(entity.level() instanceof ServerLevel level)) return;
 
-        DefenderBeeData defenderData = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData defenderData = DefenderBeeData.loadFromEntity(bee);
         if (defenderData.isDefender()) {
             recentlyHurtDefenders.put(bee.getUUID(), level.getGameTime());
             long currentTime = level.getGameTime();
@@ -99,7 +98,7 @@ public class ColonyExpansionHandler {
         if (!(entity instanceof Bee bee)) return;
         if (!(entity.level() instanceof ServerLevel level)) return;
 
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         if (data.isDefender()) return;
 
         long currentTime = level.getGameTime();
@@ -128,9 +127,9 @@ public class ColonyExpansionHandler {
         LivingEntity entity = event.getEntity();
         if (!(entity instanceof Bee bee)) return;
 
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         if (data.isDefender()) {
-            event.setDroppedExperience(3 + bee.level().random.nextInt(3));
+            event.setDroppedExperience(3 + bee.level().getRandom().nextInt(3));
         }
     }
 
@@ -138,14 +137,14 @@ public class ColonyExpansionHandler {
      * Apply slowness effect when a defender bee stings a target.
      */
     @SubscribeEvent
-    public static void onDefenderBeeAttack(LivingDamageEvent.Post event) {
+    public static void onDefenderBeeAttack(LivingDamageEvent event) {
         if (!(event.getSource().getEntity() instanceof Bee bee)) return;
 
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         if (!data.isDefender()) return;
 
         LivingEntity target = event.getEntity();
-        target.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 100, 0));
+        target.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 100, 0));
     }
 
     /**
@@ -185,27 +184,46 @@ public class ColonyExpansionHandler {
      * Called when a bee leaves the nest.
      */
     public static void checkExpansionFormation(Level level, BlockPos nestPos) {
-        if (level == null || nestPos == null) return;
-        if (level.isClientSide()) return;
+        pinecones.LOGGER.info("checkExpansionFormation called for pos {}", nestPos);
+
+        if (level == null || nestPos == null) {
+            pinecones.LOGGER.debug("checkExpansionFormation: level or nestPos is null");
+            return;
+        }
+        if (level.isClientSide()) {
+            pinecones.LOGGER.debug("checkExpansionFormation: client side, skipping");
+            return;
+        }
 
         try {
-            if (!Config.COLONY_EXPANSION_ENABLED.get()) return;
+            if (!Config.COLONY_EXPANSION_ENABLED.get()) {
+                pinecones.LOGGER.debug("checkExpansionFormation: colony expansion disabled");
+                return;
+            }
         } catch (Exception e) {
+            pinecones.LOGGER.error("checkExpansionFormation: config error", e);
             return;
         }
 
         ServerLevel serverLevel = (ServerLevel) level;
         BlockState nestState = level.getBlockState(nestPos);
 
-        if (!(nestState.getBlock() instanceof BeehiveBlock)) return;
+        if (!(nestState.getBlock() instanceof BeehiveBlock)) {
+            pinecones.LOGGER.debug("checkExpansionFormation: block at {} is not a beehive: {}", nestPos, nestState.getBlock());
+            return;
+        }
 
         BlockPos belowPos = nestPos.below();
         BlockState belowState = level.getBlockState(belowPos);
 
-        if (!belowState.isAir()) return;
+        if (!belowState.isAir()) {
+            pinecones.LOGGER.debug("checkExpansionFormation: block below nest is not air: {}", belowState.getBlock());
+            return;
+        }
 
         int flowerCount = countNearbyFlowers(level, nestPos);
         int requiredFlowers = Config.COLONY_EXPANSION_FLOWER_COUNT.get();
+        pinecones.LOGGER.info("checkExpansionFormation: found {} flowers (need {})", flowerCount, requiredFlowers);
 
         if (flowerCount >= requiredFlowers) {
             try {
@@ -257,7 +275,7 @@ public class ColonyExpansionHandler {
      * Called when a bee's target dies.
      */
     public static void onDefenderBeeTargetKilled(Bee bee, ServerLevel level) {
-        DefenderBeeData data = bee.getData(ModAttachments.DEFENDER_BEE_DATA.get());
+        DefenderBeeData data = DefenderBeeData.loadFromEntity(bee);
         if (!data.isDefender()) return;
 
         BlockPos expansionPos = data.homeExpansion().orElse(bee.blockPosition());

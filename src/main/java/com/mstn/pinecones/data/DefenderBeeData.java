@@ -1,17 +1,15 @@
 package com.mstn.pinecones.data;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.entity.Entity;
 
 import java.util.Optional;
 
 /**
  * Data stored on defender bees spawned by colony expansions.
+ * In 1.20.1, this is stored in persistent entity NBT data.
  */
 public record DefenderBeeData(
         boolean isDefender,
@@ -19,18 +17,35 @@ public record DefenderBeeData(
 ) {
     public static final DefenderBeeData EMPTY = new DefenderBeeData(false, Optional.empty());
 
-    public static final Codec<DefenderBeeData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            Codec.BOOL.fieldOf("is_defender").forGetter(DefenderBeeData::isDefender),
-            BlockPos.CODEC.optionalFieldOf("home_expansion").forGetter(DefenderBeeData::homeExpansion)
-    ).apply(instance, DefenderBeeData::new));
+    private static final String TAG_KEY = "PineconesDefenderBeeData";
+    private static final String TAG_IS_DEFENDER = "IsDefender";
+    private static final String TAG_HOME_EXPANSION = "HomeExpansion";
 
-    public static final MapCodec<DefenderBeeData> MAP_CODEC = CODEC.fieldOf("defender_bee_data");
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        tag.putBoolean(TAG_IS_DEFENDER, isDefender);
+        homeExpansion.ifPresent(pos -> tag.put(TAG_HOME_EXPANSION, NbtUtils.writeBlockPos(pos)));
+        return tag;
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, DefenderBeeData> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.BOOL, DefenderBeeData::isDefender,
-            BlockPos.STREAM_CODEC.apply(ByteBufCodecs::optional), DefenderBeeData::homeExpansion,
-            DefenderBeeData::new
-    );
+    public static DefenderBeeData fromNbt(CompoundTag tag) {
+        boolean isDefender = tag.getBoolean(TAG_IS_DEFENDER);
+        Optional<BlockPos> homeExpansion = tag.contains(TAG_HOME_EXPANSION)
+                ? Optional.of(NbtUtils.readBlockPos(tag.getCompound(TAG_HOME_EXPANSION)))
+                : Optional.empty();
+        return new DefenderBeeData(isDefender, homeExpansion);
+    }
+
+    public static void saveToEntity(Entity entity, DefenderBeeData data) {
+        entity.getPersistentData().put(TAG_KEY, data.toNbt());
+    }
+
+    public static DefenderBeeData loadFromEntity(Entity entity) {
+        if (entity.getPersistentData().contains(TAG_KEY)) {
+            return fromNbt(entity.getPersistentData().getCompound(TAG_KEY));
+        }
+        return EMPTY;
+    }
 
     public static DefenderBeeData create(BlockPos expansionPos) {
         return new DefenderBeeData(true, Optional.of(expansionPos));

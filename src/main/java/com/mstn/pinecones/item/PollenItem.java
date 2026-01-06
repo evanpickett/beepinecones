@@ -1,12 +1,9 @@
 package com.mstn.pinecones.item;
 
 import com.mstn.pinecones.component.FlowerData;
-import com.mstn.pinecones.init.ModDataComponents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.Identifier;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.BlockTags;
@@ -24,8 +21,8 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class PollenItem extends Item {
 
-    public PollenItem(Identifier id) {
-        super(new Properties().setId(ResourceKey.create(Registries.ITEM, id)));
+    public PollenItem(Properties properties) {
+        super(properties);
     }
 
     @Override
@@ -65,7 +62,7 @@ public class PollenItem extends Item {
             }
         }
 
-        return InteractionResult.SUCCESS;
+        return InteractionResult.sidedSuccess(level.isClientSide());
     }
 
     private boolean canPlaceOn(BlockState state) {
@@ -73,9 +70,9 @@ public class PollenItem extends Item {
     }
 
     private Block getFlowerFromItem(ItemStack stack) {
-        FlowerData data = stack.get(ModDataComponents.FLOWER_DATA.get());
+        FlowerData data = FlowerData.loadFromStack(stack);
         if (data != null) {
-            Block flower = BuiltInRegistries.BLOCK.getValue(data.flowerType());
+            Block flower = BuiltInRegistries.BLOCK.get(data.flowerType());
             if (flower != Blocks.AIR) {
                 return flower;
             }

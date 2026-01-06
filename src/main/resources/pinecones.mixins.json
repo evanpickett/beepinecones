@@ -1,16 +1,15 @@
 {
   "required": true,
   "package": "com.mstn.pinecones.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "minVersion": "0.8",
+  "refmap": "pinecones.refmap.json",
   "mixins": [
+    "BeeCarryDataMixin",
     "BeehiveBlockEntityMixin",
     "BeeMixin"
   ],
   "client": [
-    "BeeRenderStateMixin",
-    "BeeRendererMixin",
-    "MobRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

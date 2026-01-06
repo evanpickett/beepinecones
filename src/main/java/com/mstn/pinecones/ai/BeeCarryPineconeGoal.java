@@ -3,13 +3,12 @@ package com.mstn.pinecones.ai;
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.data.BeeCarryData;
 import com.mstn.pinecones.entity.PineconeEntity;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModItems;
 import com.mstn.pinecones.init.ModTags;
 import com.mstn.pinecones.util.TreeUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
@@ -30,6 +29,8 @@ public class BeeCarryPineconeGoal extends Goal {
     private ItemEntity targetPinecone;
     private BlockPos dropTarget;
     private int ticksCarrying;
+    private int cooldownTicks = 0;
+    private static final int DROP_COOLDOWN = 100; // 5 seconds after dropping before picking up again
 
     public BeeCarryPineconeGoal(Bee bee) {
         this.bee = bee;
@@ -38,7 +39,13 @@ public class BeeCarryPineconeGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        // Decrement cooldown
+        if (cooldownTicks > 0) {
+            cooldownTicks--;
+            return false;
+        }
+
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem() && data.carriedItem().is(ModItems.PINECONE.get())) {
             return true;
@@ -58,12 +65,15 @@ public class BeeCarryPineconeGoal extends Goal {
         }
 
         dropTarget = findDropLocation(targetPinecone.blockPosition());
+        if (dropTarget == null) {
+            com.mstn.pinecones.pinecones.LOGGER.debug("BeeCarryPineconeGoal: Found pinecone but no drop location");
+        }
         return dropTarget != null;
     }
 
     @Override
     public boolean canContinueToUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem()) {
             return true;
@@ -79,13 +89,13 @@ public class BeeCarryPineconeGoal extends Goal {
 
     @Override
     public void stop() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem()) {
             dropCarriedItem();
         }
 
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.withJustLeftNest(false));
+        BeeCarryData.saveToEntity(bee, data.withJustLeftNest(false));
 
         targetPinecone = null;
         dropTarget = null;
@@ -93,13 +103,17 @@ public class BeeCarryPineconeGoal extends Goal {
 
     @Override
     public void tick() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (data.isCarryingItem()) {
             ticksCarrying++;
 
             if (dropTarget == null) {
-                dropTarget = findDropLocation(data.pickupPos().orElse(bee.blockPosition()));
+                BlockPos pickupPos = data.pickupPos().orElse(null);
+                if (pickupPos == null) {
+                    pickupPos = bee.blockPosition();
+                }
+                dropTarget = findDropLocation(pickupPos);
             }
 
             if (dropTarget != null) {
@@ -138,19 +152,33 @@ public class BeeCarryPineconeGoal extends Goal {
     private void pickUpPinecone() {
         if (targetPinecone == null || !targetPinecone.isAlive()) return;
 
-        ItemStack stack = targetPinecone.getItem().copy();
+        // Get the item before we remove it
+        ItemStack stack = targetPinecone.getItem();
+        if (stack.isEmpty()) {
+            targetPinecone = null;
+            return;
+        }
+
+        // Copy the item for the bee to carry
+        ItemStack carriedStack = stack.copy();
         BlockPos pickupPos = targetPinecone.blockPosition();
 
-        BeeCarryData newData = bee.getData(ModAttachments.BEE_CARRY_DATA.get())
-                .withCarriedItem(stack, pickupPos);
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), newData);
+        // Clear the item entity's stack to prevent duplication
+        targetPinecone.getItem().setCount(0);
 
-        targetPinecone.discard();
+        // Remove the entity
+        targetPinecone.kill();
+
+        // Save to bee data
+        BeeCarryData newData = BeeCarryData.loadFromEntity(bee)
+                .withCarriedItem(carriedStack, pickupPos);
+        BeeCarryData.saveToEntity(bee, newData);
+
         targetPinecone = null;
     }
 
     private void dropCarriedItem() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         if (!data.isCarryingItem()) return;
 
         Level level = bee.level();
@@ -165,7 +193,11 @@ public class BeeCarryPineconeGoal extends Goal {
         );
         level.addFreshEntity(pinecone);
 
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.clearCarriedItem());
+        BeeCarryData.saveToEntity(bee, data.clearCarriedItem());
+
+        // Set cooldown to prevent immediate re-pickup
+        cooldownTicks = DROP_COOLDOWN;
+        dropTarget = null;
     }
 
     @Nullable
@@ -199,6 +231,7 @@ public class BeeCarryPineconeGoal extends Goal {
      * Checks if a position is already a valid spot for planting (no need to move it).
      */
     private boolean isValidPlantingSpot(BlockPos pos) {
+        if (pos == null) return false;
         Level level = bee.level();
         BlockState below = level.getBlockState(pos.below());
 
@@ -239,6 +272,7 @@ public class BeeCarryPineconeGoal extends Goal {
      * Checks if there are other pinecones on the ground within the specified distance.
      */
     private boolean hasNearbyPinecones(BlockPos pos, int distance) {
+        if (pos == null) return false;
         AABB searchBox = new AABB(pos).inflate(distance);
         List<ItemEntity> nearbyPinecones = bee.level().getEntitiesOfClass(ItemEntity.class, searchBox,
                 item -> item.getItem().is(ModItems.PINECONE.get()) && item.isAlive() && item.onGround());
@@ -255,6 +289,9 @@ public class BeeCarryPineconeGoal extends Goal {
 
     @Nullable
     private BlockPos findDropLocation(BlockPos pickupPos) {
+        if (pickupPos == null) {
+            pickupPos = bee.blockPosition();
+        }
         Level level = bee.level();
         int minDist = Config.BEE_MIN_PINECONE_DROP_DISTANCE.get();
         int searchRadius = Config.BEE_PINECONE_SEARCH_RADIUS.get();
@@ -284,7 +321,7 @@ public class BeeCarryPineconeGoal extends Goal {
 
     @Nullable
     private BlockPos findGround(Level level, BlockPos pos) {
-        for (int y = pos.getY() + 10; y > level.getMinY(); y--) {
+        for (int y = pos.getY() + 10; y > level.getMinBuildHeight(); y--) {
             BlockPos checkPos = new BlockPos(pos.getX(), y, pos.getZ());
             if (!level.getBlockState(checkPos).isAir() && level.getBlockState(checkPos.above()).isAir()) {
                 return checkPos.above();
@@ -297,7 +334,9 @@ public class BeeCarryPineconeGoal extends Goal {
         BlockPos hivePos = bee.getHivePos();
         if (hivePos == null) return true;
 
-        double dist = bee.blockPosition().distSqr(hivePos);
+        BlockPos beePos = bee.blockPosition();
+        if (beePos == null) return true;
+        double dist = beePos.distSqr(hivePos);
         int radius = Config.BEE_NEST_RADIUS.get();
         return dist <= radius * radius;
     }

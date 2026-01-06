@@ -3,12 +3,11 @@ package com.mstn.pinecones.entity;
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.command.PineconesCommand;
 import com.mstn.pinecones.component.TreeOriginData;
-import com.mstn.pinecones.init.ModDataComponents;
 import com.mstn.pinecones.init.ModEntityTypes;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
@@ -102,8 +101,8 @@ public class PineconeEntity extends ItemEntity {
         BlockPos pos = blockPosition();
         ItemStack stack = getItem();
 
-        // Get tree origin data
-        TreeOriginData originData = stack.get(ModDataComponents.TREE_ORIGIN.get());
+        // Get tree origin data from NBT
+        TreeOriginData originData = TreeOriginData.loadFromStack(stack);
         if (originData == null) {
             return false;
         }
@@ -191,7 +190,7 @@ public class PineconeEntity extends ItemEntity {
     }
 
     @Nullable
-    private Block getSaplingForWoodType(Identifier woodType) {
+    private Block getSaplingForWoodType(ResourceLocation woodType) {
         String woodTypeStr = woodType.toString();
 
         // Direct lookup
@@ -207,7 +206,7 @@ public class PineconeEntity extends ItemEntity {
                 .replace("_wood", "_sapling")
                 .replace("_leaves", "_sapling");
 
-        Block foundSapling = BuiltInRegistries.BLOCK.getValue(Identifier.parse(saplingName));
+        Block foundSapling = BuiltInRegistries.BLOCK.get(new ResourceLocation(saplingName));
         if (foundSapling != Blocks.AIR && foundSapling instanceof SaplingBlock) {
             return foundSapling;
         }

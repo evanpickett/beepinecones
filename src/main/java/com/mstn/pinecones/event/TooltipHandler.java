@@ -3,21 +3,20 @@ package com.mstn.pinecones.event;
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.component.FlowerData;
 import com.mstn.pinecones.component.TreeOriginData;
-import com.mstn.pinecones.init.ModDataComponents;
 import com.mstn.pinecones.init.ModItems;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.common.Mod;
 
 /**
  * Handles custom tooltips for pinecones and pollen items.
  */
-@EventBusSubscriber(modid = pinecones.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = pinecones.MODID, value = Dist.CLIENT)
 public class TooltipHandler {
 
     @SubscribeEvent
@@ -32,16 +31,16 @@ public class TooltipHandler {
     }
 
     private static void addPineconeTooltip(ItemStack stack, ItemTooltipEvent event) {
-        TreeOriginData data = stack.get(ModDataComponents.TREE_ORIGIN.get());
+        TreeOriginData data = TreeOriginData.loadFromStack(stack);
 
         if (data != null) {
             // Format wood type
-            String woodName = formatIdentifier(data.woodType());
+            String woodName = formatResourceLocation(data.woodType());
             event.getToolTip().add(Component.translatable("tooltip.pinecones.tree_type", woodName)
                     .withStyle(ChatFormatting.GRAY));
 
             // Format biome
-            String biomeName = formatIdentifier(data.biome());
+            String biomeName = formatResourceLocation(data.biome());
             event.getToolTip().add(Component.translatable("tooltip.pinecones.biome", biomeName)
                     .withStyle(ChatFormatting.DARK_GREEN));
         } else {
@@ -51,11 +50,11 @@ public class TooltipHandler {
     }
 
     private static void addPollenTooltip(ItemStack stack, ItemTooltipEvent event) {
-        FlowerData data = stack.get(ModDataComponents.FLOWER_DATA.get());
+        FlowerData data = FlowerData.loadFromStack(stack);
 
         if (data != null) {
             // Format flower type
-            String flowerName = formatIdentifier(data.flowerType());
+            String flowerName = formatResourceLocation(data.flowerType());
             event.getToolTip().add(Component.translatable("tooltip.pinecones.flower_type", flowerName)
                     .withStyle(ChatFormatting.LIGHT_PURPLE));
         } else {
@@ -65,10 +64,10 @@ public class TooltipHandler {
     }
 
     /**
-     * Formats an Identifier into a human-readable string.
+     * Formats a ResourceLocation into a human-readable string.
      * e.g., "minecraft:oak_log" -> "Oak Log"
      */
-    private static String formatIdentifier(Identifier id) {
+    private static String formatResourceLocation(ResourceLocation id) {
         String path = id.getPath();
         // Remove common suffixes and convert to title case
         String formatted = path

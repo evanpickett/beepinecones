@@ -1,19 +1,18 @@
 package com.mstn.pinecones.data;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-import io.netty.buffer.ByteBuf;
+import com.mstn.pinecones.api.IBeeCarryDataAccessor;
 import net.minecraft.core.BlockPos;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtUtils;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
 /**
  * Data stored on bees to track what they're carrying (pinecone or pollen).
+ * In 1.20.1, this is stored in persistent entity NBT data.
  */
 public record BeeCarryData(
         ItemStack carriedItem,
@@ -24,27 +23,61 @@ public record BeeCarryData(
 ) {
     public static final BeeCarryData EMPTY = new BeeCarryData(ItemStack.EMPTY, Optional.empty(), 0, false, false);
 
-    public static final Codec<BeeCarryData> CODEC = RecordCodecBuilder.create(instance -> instance.group(
-            ItemStack.OPTIONAL_CODEC.fieldOf("carried_item").forGetter(BeeCarryData::carriedItem),
-            BlockPos.CODEC.optionalFieldOf("pickup_pos").forGetter(BeeCarryData::pickupPos),
-            Codec.INT.fieldOf("carrying_ticks").forGetter(BeeCarryData::carryingTicks),
-            Codec.BOOL.fieldOf("just_left_nest").forGetter(BeeCarryData::justLeftNest),
-            Codec.BOOL.fieldOf("has_dropped_pollen").forGetter(BeeCarryData::hasDroppedPollenThisCycle)
-    ).apply(instance, BeeCarryData::new));
+    private static final String TAG_KEY = "PineconesBeeCarryData";
+    private static final String TAG_CARRIED_ITEM = "CarriedItem";
+    private static final String TAG_PICKUP_POS = "PickupPos";
+    private static final String TAG_CARRYING_TICKS = "CarryingTicks";
+    private static final String TAG_JUST_LEFT_NEST = "JustLeftNest";
+    private static final String TAG_HAS_DROPPED_POLLEN = "HasDroppedPollen";
 
-    public static final MapCodec<BeeCarryData> MAP_CODEC = CODEC.fieldOf("bee_carry_data");
+    public CompoundTag toNbt() {
+        CompoundTag tag = new CompoundTag();
+        if (!carriedItem.isEmpty()) {
+            tag.put(TAG_CARRIED_ITEM, carriedItem.save(new CompoundTag()));
+        }
+        pickupPos.ifPresent(pos -> tag.put(TAG_PICKUP_POS, NbtUtils.writeBlockPos(pos)));
+        tag.putInt(TAG_CARRYING_TICKS, carryingTicks);
+        tag.putBoolean(TAG_JUST_LEFT_NEST, justLeftNest);
+        tag.putBoolean(TAG_HAS_DROPPED_POLLEN, hasDroppedPollenThisCycle);
+        return tag;
+    }
 
-    /**
-     * Stream codec for network synchronization.
-     */
-    public static final StreamCodec<RegistryFriendlyByteBuf, BeeCarryData> STREAM_CODEC = StreamCodec.composite(
-            ItemStack.OPTIONAL_STREAM_CODEC, BeeCarryData::carriedItem,
-            BlockPos.STREAM_CODEC.apply(ByteBufCodecs::optional), BeeCarryData::pickupPos,
-            ByteBufCodecs.VAR_INT, BeeCarryData::carryingTicks,
-            ByteBufCodecs.BOOL, BeeCarryData::justLeftNest,
-            ByteBufCodecs.BOOL, BeeCarryData::hasDroppedPollenThisCycle,
-            BeeCarryData::new
-    );
+    public static BeeCarryData fromNbt(CompoundTag tag) {
+        ItemStack item = tag.contains(TAG_CARRIED_ITEM)
+                ? ItemStack.of(tag.getCompound(TAG_CARRIED_ITEM))
+                : ItemStack.EMPTY;
+        Optional<BlockPos> pickupPos = tag.contains(TAG_PICKUP_POS)
+                ? Optional.of(NbtUtils.readBlockPos(tag.getCompound(TAG_PICKUP_POS)))
+                : Optional.empty();
+        int carryingTicks = tag.getInt(TAG_CARRYING_TICKS);
+        boolean justLeftNest = tag.getBoolean(TAG_JUST_LEFT_NEST);
+        boolean hasDroppedPollen = tag.getBoolean(TAG_HAS_DROPPED_POLLEN);
+        return new BeeCarryData(item, pickupPos, carryingTicks, justLeftNest, hasDroppedPollen);
+    }
+
+    public static void saveToEntity(Entity entity, BeeCarryData data) {
+        entity.getPersistentData().put(TAG_KEY, data.toNbt());
+        // Also sync the carried item to clients via mixin
+        if (entity instanceof Bee bee && bee instanceof IBeeCarryDataAccessor accessor) {
+            accessor.pinecones$setCarriedItem(data.carriedItem.copy());
+        }
+    }
+
+    public static BeeCarryData loadFromEntity(Entity entity) {
+        // On client side, prefer synced data for the carried item
+        if (entity.level().isClientSide() && entity instanceof Bee bee && bee instanceof IBeeCarryDataAccessor accessor) {
+            ItemStack syncedItem = accessor.pinecones$getCarriedItem();
+            if (!syncedItem.isEmpty()) {
+                // Return minimal data with just the synced item for rendering
+                return new BeeCarryData(syncedItem, Optional.empty(), 0, false, false);
+            }
+        }
+        // Server side or no synced data - use persistent data
+        if (entity.getPersistentData().contains(TAG_KEY)) {
+            return fromNbt(entity.getPersistentData().getCompound(TAG_KEY));
+        }
+        return EMPTY;
+    }
 
     public boolean isCarryingItem() {
         return !carriedItem.isEmpty();

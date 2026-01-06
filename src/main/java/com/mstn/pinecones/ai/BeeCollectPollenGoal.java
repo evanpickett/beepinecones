@@ -4,15 +4,13 @@ import com.mstn.pinecones.Config;
 import com.mstn.pinecones.component.FlowerData;
 import com.mstn.pinecones.data.BeeCarryData;
 import com.mstn.pinecones.entity.PollenEntity;
-import com.mstn.pinecones.init.ModAttachments;
-import com.mstn.pinecones.init.ModDataComponents;
 import com.mstn.pinecones.init.ModItems;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
@@ -41,15 +39,15 @@ public class BeeCollectPollenGoal extends Goal {
         // Only trigger when bee has nectar (just pollinated)
         if (!bee.hasNectar()) {
             // Reset the flag when bee no longer has nectar (deposited in hive)
-            BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+            BeeCarryData data = BeeCarryData.loadFromEntity(bee);
             if (data.hasDroppedPollenThisCycle()) {
-                bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.withDroppedPollen(false));
+                BeeCarryData.saveToEntity(bee, data.withDroppedPollen(false));
             }
             return false;
         }
 
         // Don't drop pollen again if we already did this nectar cycle
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         if (data.hasDroppedPollenThisCycle()) {
             return false;
         }
@@ -127,9 +125,9 @@ public class BeeCollectPollenGoal extends Goal {
         if (!flowerState.is(ModTags.Blocks.FLOWERS)) return;
 
         // Create pollen with flower data
-        Identifier flowerId = BuiltInRegistries.BLOCK.getKey(flowerState.getBlock());
+        ResourceLocation flowerId = BuiltInRegistries.BLOCK.getKey(flowerState.getBlock());
         ItemStack pollen = new ItemStack(ModItems.POLLEN.get());
-        pollen.set(ModDataComponents.FLOWER_DATA.get(), new FlowerData(flowerId));
+        FlowerData.saveToStack(pollen, new FlowerData(flowerId));
 
         // Calculate random direction to drop pollen
         double angle = level.random.nextDouble() * Math.PI * 2;
@@ -152,8 +150,8 @@ public class BeeCollectPollenGoal extends Goal {
         hasDroppedPollen = true;
 
         // Mark on bee data so we don't drop again this nectar cycle
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.withDroppedPollen(true));
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
+        BeeCarryData.saveToEntity(bee, data.withDroppedPollen(true));
     }
 
     @Nullable

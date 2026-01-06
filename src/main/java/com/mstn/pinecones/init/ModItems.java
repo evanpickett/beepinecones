@@ -3,15 +3,17 @@ package com.mstn.pinecones.init;
 import com.mstn.pinecones.pinecones;
 import com.mstn.pinecones.item.PineconeItem;
 import com.mstn.pinecones.item.PollenItem;
-import net.neoforged.neoforge.registries.DeferredItem;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.world.item.Item;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
 
 public class ModItems {
-    public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(pinecones.MODID);
+    public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, pinecones.MODID);
 
-    public static final DeferredItem<PineconeItem> PINECONE = ITEMS.register("pinecone",
-            PineconeItem::new);
+    public static final RegistryObject<PineconeItem> PINECONE = ITEMS.register("pinecone",
+            () -> new PineconeItem(new Item.Properties()));
 
-    public static final DeferredItem<PollenItem> POLLEN = ITEMS.register("pollen",
-            PollenItem::new);
+    public static final RegistryObject<PollenItem> POLLEN = ITEMS.register("pollen",
+            () -> new PollenItem(new Item.Properties()));
 }

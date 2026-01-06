@@ -4,11 +4,10 @@ import com.mstn.pinecones.data.BeeCarryData;
 import com.mstn.pinecones.entity.PineconeEntity;
 import com.mstn.pinecones.entity.PollenEntity;
 import com.mstn.pinecones.event.ColonyExpansionHandler;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModItems;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
@@ -27,12 +26,14 @@ public class BeehiveBlockEntityMixin {
 
     /**
      * When a bee enters the hive, drop any carried items first.
+     * In 1.20.1, addOccupant takes (Entity, boolean hasNectar).
      */
     @Inject(method = "addOccupant", at = @At("HEAD"))
-    private void onBeeEnter(Bee bee, CallbackInfo ci) {
+    private void onBeeEnter(Entity entity, boolean hasNectar, CallbackInfo ci) {
+        if (!(entity instanceof Bee bee)) return;
         if (bee.level().isClientSide()) return;
 
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         if (!data.isCarryingItem()) return;
 
         ItemStack carried = data.carriedItem();
@@ -59,18 +60,24 @@ public class BeehiveBlockEntityMixin {
             level.addFreshEntity(pollen);
         }
 
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.clearCarriedItem());
+        BeeCarryData.saveToEntity(bee, data.clearCarriedItem());
     }
 
+    /**
+     * Inject at the end of releaseOccupant to trigger colony expansion check.
+     * BeeData is made accessible via access transformer.
+     */
     @Inject(method = "releaseOccupant", at = @At("RETURN"))
     private static void onBeeRelease(Level level, BlockPos pos, BlockState state,
-                                     BeehiveBlockEntity.Occupant occupant,
+                                     BeehiveBlockEntity.BeeData beeData,
                                      @Nullable List<Entity> storedInHives,
                                      BeehiveBlockEntity.BeeReleaseStatus releaseStatus,
                                      @Nullable BlockPos flowerPos,
                                      CallbackInfoReturnable<Boolean> cir) {
         Boolean released = cir.getReturnValue();
+        com.mstn.pinecones.pinecones.LOGGER.debug("Bee release mixin triggered: released={}, level={}, pos={}", released, level != null, pos);
         if (Boolean.TRUE.equals(released) && level != null && pos != null && !level.isClientSide()) {
+            com.mstn.pinecones.pinecones.LOGGER.debug("Calling checkExpansionFormation at {}", pos);
             ColonyExpansionHandler.checkExpansionFormation(level, pos);
         }
     }

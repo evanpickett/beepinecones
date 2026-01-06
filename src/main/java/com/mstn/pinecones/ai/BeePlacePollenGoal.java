@@ -3,13 +3,12 @@ package com.mstn.pinecones.ai;
 import com.mstn.pinecones.Config;
 import com.mstn.pinecones.data.BeeCarryData;
 import com.mstn.pinecones.entity.PollenEntity;
-import com.mstn.pinecones.init.ModAttachments;
 import com.mstn.pinecones.init.ModItems;
 import com.mstn.pinecones.init.ModTags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.goal.Goal;
-import net.minecraft.world.entity.animal.bee.Bee;
+import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BonemealableBlock;
@@ -45,7 +44,7 @@ public class BeePlacePollenGoal extends Goal {
 
     @Override
     public boolean canUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
 
         if (!data.isCarryingItem() || !data.carriedItem().is(ModItems.POLLEN.get())) {
             return false;
@@ -72,7 +71,7 @@ public class BeePlacePollenGoal extends Goal {
 
     @Override
     public boolean canContinueToUse() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         if (!data.isCarryingItem()) {
             return false;
         }
@@ -123,13 +122,13 @@ public class BeePlacePollenGoal extends Goal {
         if (target == null) return;
 
         Level level = bee.level();
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         BlockState state = level.getBlockState(target);
 
         if (state.getBlock() instanceof BonemealableBlock growable) {
             if (level instanceof ServerLevel serverLevel) {
                 for (int i = 0; i < 5; i++) {
-                    if (growable.isValidBonemealTarget(level, target, state)) {
+                    if (growable.isValidBonemealTarget(level, target, state, false)) {
                         growable.performBonemeal(serverLevel, level.random, target, state);
                         state = level.getBlockState(target);
                     }
@@ -137,12 +136,12 @@ public class BeePlacePollenGoal extends Goal {
             }
         }
 
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.clearCarriedItem());
+        BeeCarryData.saveToEntity(bee, data.clearCarriedItem());
         target = null;
     }
 
     private void dropPollen() {
-        BeeCarryData data = bee.getData(ModAttachments.BEE_CARRY_DATA.get());
+        BeeCarryData data = BeeCarryData.loadFromEntity(bee);
         if (!data.isCarryingItem()) return;
 
         Level level = bee.level();
@@ -157,7 +156,7 @@ public class BeePlacePollenGoal extends Goal {
         );
         level.addFreshEntity(pollen);
 
-        bee.setData(ModAttachments.BEE_CARRY_DATA.get(), data.clearCarriedItem());
+        BeeCarryData.saveToEntity(bee, data.clearCarriedItem());
         target = null;
     }
 
@@ -231,6 +230,7 @@ public class BeePlacePollenGoal extends Goal {
      * Checks if there is a flower within the specified distance.
      */
     private boolean hasNearbyFlower(BlockPos pos, int distance) {
+        if (pos == null) return false;
         Level level = bee.level();
         for (int dx = -distance; dx <= distance; dx++) {
             for (int dy = -distance; dy <= distance; dy++) {
@@ -249,6 +249,7 @@ public class BeePlacePollenGoal extends Goal {
      * Checks if there is other pollen on the ground within the specified distance.
      */
     private boolean hasNearbyPollen(BlockPos pos, int distance) {
+        if (pos == null) return false;
         AABB searchBox = new AABB(pos).inflate(distance);
         List<ItemEntity> nearbyPollen = bee.level().getEntitiesOfClass(ItemEntity.class, searchBox,
                 item -> item.getItem().is(ModItems.POLLEN.get()) && item.isAlive() && item.onGround());
@@ -264,7 +265,7 @@ public class BeePlacePollenGoal extends Goal {
 
     @Nullable
     private BlockPos findGround(Level level, BlockPos pos) {
-        for (int y = pos.getY() + 10; y > level.getMinY(); y--) {
+        for (int y = pos.getY() + 10; y > level.getMinBuildHeight(); y--) {
             BlockPos checkPos = new BlockPos(pos.getX(), y, pos.getZ());
             if (!level.getBlockState(checkPos).isAir() && level.getBlockState(checkPos.above()).isAir()) {
                 return checkPos.above();
@@ -277,7 +278,9 @@ public class BeePlacePollenGoal extends Goal {
         BlockPos hivePos = bee.getHivePos();
         if (hivePos == null) return true;
 
-        double dist = bee.blockPosition().distSqr(hivePos);
+        BlockPos beePos = bee.blockPosition();
+        if (beePos == null) return true;
+        double dist = beePos.distSqr(hivePos);
         int radius = Config.BEE_NEST_RADIUS.get();
         return dist <= radius * radius;
     }
