@@ -18,6 +18,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BeehiveBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.event.entity.living.LivingChangeTargetEvent;
@@ -257,7 +258,7 @@ public class ColonyExpansionHandler {
                     for (int dz = -radius; dz <= radius; dz++) {
                         BlockPos checkPos = center.offset(dx, dy, dz);
                         BlockState state = level.getBlockState(checkPos);
-                        if (state.is(ModTags.Blocks.FLOWERS)) {
+                        if (state.is(ModTags.Blocks.FLOWERS) && !(state.getBlock() instanceof LeavesBlock)) {
                             count++;
                         }
                     }

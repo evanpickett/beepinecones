@@ -75,9 +75,7 @@ public class BeehiveBlockEntityMixin {
                                      @Nullable BlockPos flowerPos,
                                      CallbackInfoReturnable<Boolean> cir) {
         Boolean released = cir.getReturnValue();
-        com.mstn.pinecones.pinecones.LOGGER.debug("Bee release mixin triggered: released={}, level={}, pos={}", released, level != null, pos);
         if (Boolean.TRUE.equals(released) && level != null && pos != null && !level.isClientSide()) {
-            com.mstn.pinecones.pinecones.LOGGER.debug("Calling checkExpansionFormation at {}", pos);
             ColonyExpansionHandler.checkExpansionFormation(level, pos);
         }
     }

@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.animal.Bee;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BeehiveBlock;
+import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.entity.BeehiveBlockEntity;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -79,6 +80,7 @@ public abstract class BeeMixin {
 
     /**
      * Drops pollen near the flower that was just pollinated.
+     * Does not drop pollen for leaves (like cherry leaves) to prevent spam.
      */
     private void dropPollenNearFlower(Bee bee, ServerLevel level) {
         BlockPos flowerPos = getSavedFlowerPos();
@@ -86,6 +88,9 @@ public abstract class BeeMixin {
 
         BlockState flowerState = level.getBlockState(flowerPos);
         if (flowerState.isAir()) return;
+
+        // Don't drop pollen when pollinating leaves (like cherry leaves)
+        if (flowerState.getBlock() instanceof LeavesBlock) return;
 
         // Create pollen with flower data
         ResourceLocation flowerId = BuiltInRegistries.BLOCK.getKey(flowerState.getBlock());

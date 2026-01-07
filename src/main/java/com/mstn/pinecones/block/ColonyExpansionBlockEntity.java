@@ -150,9 +150,6 @@ public class ColonyExpansionBlockEntity extends BlockEntity {
             double z = pos.getZ() + 0.5 + (level.random.nextDouble() - 0.5);
             bee.setPos(x, y, z);
 
-            // Make defender bees smaller (baby size)
-            bee.setBaby(true);
-
             bee.setTarget(target);
             bee.setRemainingPersistentAngerTime(Integer.MAX_VALUE);
             if (target != null) {
