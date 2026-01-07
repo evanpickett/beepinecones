@@ -12,6 +12,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.storage.loot.LootContext;
@@ -39,6 +40,14 @@ public class ReplaceSaplingWithPineconeLootModifier extends LootModifier {
     @Nonnull
     @Override
     protected ObjectArrayList<ItemStack> doApply(ObjectArrayList<ItemStack> generatedLoot, LootContext context) {
+        // If the broken block is a sapling itself, don't replace the drop
+        if (context.hasParam(LootContextParams.BLOCK_STATE)) {
+            BlockState brokenBlock = context.getParam(LootContextParams.BLOCK_STATE);
+            if (brokenBlock.is(BlockTags.SAPLINGS)) {
+                return generatedLoot;
+            }
+        }
+
         ObjectArrayList<ItemStack> newLoot = new ObjectArrayList<>();
 
         for (ItemStack stack : generatedLoot) {
